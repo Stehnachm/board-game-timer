@@ -8,13 +8,22 @@
 </head>
 <body>
 
-  <!-- SETUP SCREEN -->
-  <div id="screen-setup" class="screen active">
+  <!-- HOME SCREEN -->
+  <div id="screen-home" class="screen active">
     <div class="container">
       <h1>Board Game Timer</h1>
+      <button id="btn-host" class="btn btn-primary btn-large">Host Game</button>
+      <button id="btn-join-screen" class="btn btn-secondary btn-large">Join Game</button>
+    </div>
+  </div>
+
+  <!-- SETUP SCREEN (host only) -->
+  <div id="screen-setup" class="screen">
+    <div class="container">
+      <h1>Set Up Game</h1>
 
       <div class="field-group">
-        <label for="player-count">Number of Players</label>
+        <label>Number of Players</label>
         <div class="stepper">
           <button id="count-down" class="stepper-btn" aria-label="Decrease">&#8722;</button>
           <span id="player-count-display">2</span>
@@ -24,7 +33,52 @@
 
       <div id="player-names" class="player-names"></div>
 
-      <button id="btn-start" class="btn btn-primary btn-large">Start Game</button>
+      <button id="btn-create-room" class="btn btn-primary btn-large">Create Room</button>
+      <button id="btn-back-setup" class="btn btn-secondary">Back</button>
+    </div>
+  </div>
+
+  <!-- JOIN SCREEN -->
+  <div id="screen-join" class="screen">
+    <div class="container">
+      <h1>Join Game</h1>
+      <div class="field-group">
+        <label for="join-code-input">Room Code</label>
+        <input
+          id="join-code-input"
+          class="player-name-input code-input"
+          type="text"
+          placeholder="Enter 5-letter code"
+          maxlength="5"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+      </div>
+      <p id="join-error" class="error-msg"></p>
+      <button id="btn-join" class="btn btn-primary btn-large">Join</button>
+      <button id="btn-back-join" class="btn btn-secondary">Back</button>
+    </div>
+  </div>
+
+  <!-- LOBBY SCREEN -->
+  <div id="screen-lobby" class="screen">
+    <div class="container">
+      <h1>Lobby</h1>
+
+      <div class="room-code-card">
+        <span class="label">Room Code</span>
+        <span id="lobby-room-code" class="room-code-display">-----</span>
+      </div>
+      <p class="hint">Other players enter this code on the Join screen</p>
+
+      <div class="scoreboard">
+        <h2>Players</h2>
+        <div id="lobby-player-list" class="scoreboard-list"></div>
+      </div>
+
+      <button id="btn-begin-game" class="btn btn-primary btn-large" style="display:none">Start Game</button>
+      <p id="waiting-msg" class="hint" style="text-align:center">Waiting for host to start&hellip;</p>
     </div>
   </div>
 
@@ -73,6 +127,8 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

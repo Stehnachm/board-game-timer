@@ -66,6 +66,19 @@ h2 {
   letter-spacing: 1px;
 }
 
+.hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.error-msg {
+  color: var(--accent);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+  text-align: center;
+}
+
 /* ── Setup Screen ── */
 .field-group {
   display: flex;
@@ -143,6 +156,14 @@ h2 {
   color: var(--text-muted);
 }
 
+.code-input {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 /* ── Buttons ── */
 .btn {
   border: none;
@@ -189,6 +210,34 @@ h2 {
   padding: 24px;
   letter-spacing: 0.5px;
   box-shadow: var(--shadow);
+}
+
+/* ── Lobby ── */
+.room-code-card {
+  background: var(--surface-2);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+}
+
+.room-code-card .label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.room-code-display {
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: 10px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Total Timer Bar ── */
