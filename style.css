@@ -265,6 +265,16 @@ h2 {
   letter-spacing: 1px;
 }
 
+.game-room-code {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  background: var(--bg);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
 /* ── Active Player Card ── */
 .active-player-card {
   background: var(--surface-2);

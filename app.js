@@ -173,6 +173,7 @@ function subscribeToRoom(code) {
       renderLobbyPlayers(data.players);
     } else if (data.status === 'playing') {
       renderScoreboard();
+      document.getElementById('game-room-code').textContent = local.roomCode;
       showScreen('screen-game');
       startTick();
     } else if (data.status === 'finished') {
