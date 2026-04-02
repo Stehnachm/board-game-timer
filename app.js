@@ -25,6 +25,13 @@ const local = {
   gameStartMs: null,
   turnStartMs: null,
   thresholdsPulsed: new Set(),
+  // Pause
+  isPaused: false,
+  gameElapsedMs: null,
+  turnElapsedMs: null,
+  // Round mode
+  roundMode: false,
+  currentRound: 1,
 };
 
 // ── Audio ──────────────────────────────────────────────────────────────────
@@ -155,12 +162,19 @@ document.getElementById('btn-create-room').addEventListener('click', async () =>
     local.roomCode = code;
     local.isHost = true;
 
+    const roundMode = document.getElementById('round-mode-toggle').checked;
+
     await db.ref(`rooms/${code}`).set({
       status: 'lobby',
       players,
       activeIndex: 0,
       gameStartMs: null,
       turnStartMs: null,
+      isPaused: false,
+      gameElapsedMs: null,
+      turnElapsedMs: null,
+      roundMode,
+      currentRound: 1,
     });
 
     subscribeToRoom(code);
@@ -243,6 +257,11 @@ function subscribeToRoom(code) {
     local.players = data.players || [];
     local.activeIndex = data.activeIndex || 0;
     local.gameStartMs = data.gameStartMs;
+    local.isPaused = data.isPaused || false;
+    local.gameElapsedMs = data.gameElapsedMs != null ? data.gameElapsedMs : null;
+    local.turnElapsedMs = data.turnElapsedMs != null ? data.turnElapsedMs : null;
+    local.roundMode = data.roundMode || false;
+    local.currentRound = data.currentRound || 1;
     // Reset threshold tracker whenever the turn changes
     if (data.turnStartMs !== local.turnStartMs) {
       local.thresholdsPulsed = new Set();
@@ -253,9 +272,14 @@ function subscribeToRoom(code) {
       renderLobbyPlayers(data.players);
     } else if (data.status === 'playing') {
       renderScoreboard();
+      updatePauseUI();
       document.getElementById('game-room-code').textContent = local.roomCode;
       showScreen('screen-game');
       startTick();
+    } else if (data.status === 'between-rounds') {
+      stopTick();
+      renderBetweenRounds(data);
+      showScreen('screen-between-rounds');
     } else if (data.status === 'finished') {
       stopTick();
       renderSummary(data);
@@ -311,6 +335,15 @@ function stopTick() {
 
 function tick() {
   if (!local.gameStartMs) return;
+
+  if (local.isPaused) {
+    if (local.gameElapsedMs != null)
+      document.getElementById('total-time').textContent = formatTime(local.gameElapsedMs);
+    if (local.turnElapsedMs != null)
+      document.getElementById('active-player-time').textContent = formatTime(local.turnElapsedMs);
+    return;
+  }
+
   const now = Date.now();
   const turnMs = now - local.turnStartMs;
 
@@ -346,6 +379,27 @@ function renderScoreboard() {
   const active = local.players[local.activeIndex];
   if (active) {
     document.getElementById('active-player-name').textContent = active.name;
+  }
+
+  // Round indicator
+  const roundEl = document.getElementById('round-indicator');
+  if (local.roundMode) {
+    roundEl.textContent = `Round ${local.currentRound}`;
+    roundEl.style.display = 'block';
+  } else {
+    roundEl.style.display = 'none';
+  }
+
+  // Show End Round for last player in round mode, otherwise End Turn
+  const isLastPlayer = local.activeIndex === local.players.length - 1;
+  const endTurnBtn  = document.getElementById('btn-end-turn');
+  const endRoundBtn = document.getElementById('btn-end-round');
+  if (local.roundMode && isLastPlayer) {
+    endTurnBtn.style.display  = 'none';
+    endRoundBtn.style.display = '';
+  } else {
+    endTurnBtn.style.display  = '';
+    endRoundBtn.style.display = 'none';
   }
 
   const list = document.getElementById('scoreboard-list');
@@ -415,6 +469,147 @@ document.getElementById('btn-end-game').addEventListener('click', async () => {
   }
 });
 
+// ── Pause / Resume ─────────────────────────────────────────────────────────
+
+document.getElementById('btn-pause').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pause');
+  btn.disabled = true;
+  try {
+    if (local.isPaused) {
+      const now = Date.now();
+      await db.ref(`rooms/${local.roomCode}`).update({
+        isPaused: false,
+        gameStartMs: now - local.gameElapsedMs,
+        turnStartMs: now - local.turnElapsedMs,
+        gameElapsedMs: null,
+        turnElapsedMs: null,
+      });
+    } else {
+      await db.ref(`rooms/${local.roomCode}`).update({
+        isPaused: true,
+        gameElapsedMs: Date.now() - local.gameStartMs,
+        turnElapsedMs: Date.now() - local.turnStartMs,
+      });
+    }
+  } catch (err) {
+    btn.disabled = false;
+  }
+});
+
+function updatePauseUI() {
+  const pauseBtn    = document.getElementById('btn-pause');
+  const endTurnBtn  = document.getElementById('btn-end-turn');
+  const endRoundBtn = document.getElementById('btn-end-round');
+  const endGameBtn  = document.getElementById('btn-end-game');
+  const badge       = document.getElementById('paused-badge');
+
+  pauseBtn.disabled = false;
+  if (local.isPaused) {
+    pauseBtn.textContent = '▶';
+    pauseBtn.setAttribute('aria-label', 'Resume game');
+    endTurnBtn.disabled  = true;
+    endRoundBtn.disabled = true;
+    endGameBtn.disabled  = true;
+    badge.style.display  = 'block';
+  } else {
+    pauseBtn.textContent = '⏸';
+    pauseBtn.setAttribute('aria-label', 'Pause game');
+    endTurnBtn.disabled  = false;
+    endRoundBtn.disabled = false;
+    endGameBtn.disabled  = false;
+    badge.style.display  = 'none';
+  }
+}
+
+// ── End Round ──────────────────────────────────────────────────────────────
+
+document.getElementById('btn-end-round').addEventListener('click', async () => {
+  if (!local.turnStartMs) return;
+  const btn = document.getElementById('btn-end-round');
+  btn.disabled = true;
+  playTurnSound();
+
+  try {
+    const now = Date.now();
+    const turnMs = now - local.turnStartMs;
+    const players = local.players.map((p, i) => {
+      if (i !== local.activeIndex) return p;
+      return { ...p, totalMs: p.totalMs + turnMs, turns: p.turns + 1 };
+    });
+
+    await db.ref(`rooms/${local.roomCode}`).update({
+      status: 'between-rounds',
+      players,
+      isPaused: true,
+      gameElapsedMs: now - local.gameStartMs,
+      turnElapsedMs: 0,
+    });
+  } catch (err) {
+    btn.disabled = false;
+  }
+});
+
+// ── Between Rounds ─────────────────────────────────────────────────────────
+
+function renderBetweenRounds(data) {
+  document.getElementById('round-complete-number').textContent = data.currentRound;
+  const beginBtn = document.getElementById('btn-begin-round');
+  beginBtn.textContent = `Begin Round ${data.currentRound + 1}`;
+  beginBtn.disabled = false;
+
+  const list = document.getElementById('reorder-list');
+  list.innerHTML = '';
+  (data.players || []).forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'reorder-row';
+    const isFirst = i === 0;
+    const isLast  = i === (data.players.length - 1);
+    row.innerHTML = `
+      <span class="reorder-position">${i + 1}</span>
+      <span class="reorder-name">${p.name}</span>
+      <div class="reorder-controls">
+        <button class="reorder-btn" data-index="${i}" data-dir="-1"
+          aria-label="Move ${p.name} up" ${isFirst ? 'disabled' : ''}>↑</button>
+        <button class="reorder-btn" data-index="${i}" data-dir="1"
+          aria-label="Move ${p.name} down" ${isLast ? 'disabled' : ''}>↓</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.reorder-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.index);
+      const dir = parseInt(btn.dataset.dir);
+      const newPlayers = [...local.players];
+      [newPlayers[idx], newPlayers[idx + dir]] = [newPlayers[idx + dir], newPlayers[idx]];
+      await db.ref(`rooms/${local.roomCode}`).update({ players: newPlayers });
+    });
+  });
+}
+
+document.getElementById('btn-begin-round').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-begin-round');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  try {
+    const now = Date.now();
+    await db.ref(`rooms/${local.roomCode}`).update({
+      status: 'playing',
+      isPaused: false,
+      activeIndex: 0,
+      currentRound: local.currentRound + 1,
+      gameStartMs: now - local.gameElapsedMs,
+      turnStartMs: now,
+      gameElapsedMs: null,
+      turnElapsedMs: null,
+    });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = `Begin Round ${local.currentRound + 1}`;
+  }
+});
+
 // ── Summary Screen ─────────────────────────────────────────────────────────
 
 function renderSummary(data) {
@@ -449,6 +644,11 @@ document.getElementById('btn-new-game').addEventListener('click', () => {
   local.roomCode = null;
   local.isHost = false;
   local.players = [];
+  local.isPaused = false;
+  local.gameElapsedMs = null;
+  local.turnElapsedMs = null;
+  local.roundMode = false;
+  local.currentRound = 1;
 
   playerCount = 2;
   countDisplay.textContent = 2;
