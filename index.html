@@ -33,6 +33,19 @@
 
       <div id="player-names" class="player-names"></div>
 
+      <details class="advanced-options">
+        <summary>&#9881; Advanced Options</summary>
+        <div class="advanced-options-body">
+          <div class="toggle-row">
+            <input type="checkbox" id="round-mode-toggle" />
+            <div class="toggle-info">
+              <label class="toggle-label" for="round-mode-toggle">Round Mode</label>
+              <span class="toggle-hint">For games where turn order changes each round (e.g. Viticulture). The last player ends the round, players reorder, then a new round begins.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <p id="setup-error" class="error-msg"></p>
       <button id="btn-create-room" class="btn btn-primary btn-large">Create Room</button>
       <button id="btn-back-setup" class="btn btn-secondary">Back</button>
@@ -92,19 +105,22 @@
         <span id="total-time" class="total-time">00:00:00</span>
         <div class="timer-bar-right">
           <span id="game-room-code" class="game-room-code"></span>
+          <button id="btn-pause" class="btn-pause" aria-label="Pause game">⏸</button>
           <button id="btn-sound-toggle" class="btn-sound-toggle" aria-label="Mute sound">🔊</button>
         </div>
       </div>
 
+      <div id="round-indicator" class="round-indicator"></div>
+
       <div class="active-player-card">
         <div class="turn-label">Current Turn</div>
         <div id="active-player-name" class="active-player-name">Player 1</div>
-        <div id="active-player-time" class="active-player-time">00:00:00</div>
+        <div id="active-player-time" class="active-player-time timer-safe">00:00:00</div>
+        <div id="paused-badge" class="paused-badge" aria-live="polite">Paused</div>
       </div>
 
-      <button id="btn-end-turn" class="btn btn-primary btn-large btn-end-turn">
-        End Turn
-      </button>
+      <button id="btn-end-turn" class="btn btn-primary btn-large btn-end-turn">End Turn</button>
+      <button id="btn-end-round" class="btn btn-primary btn-large btn-end-turn" style="display:none">End Round</button>
 
       <div class="scoreboard">
         <h2>Turn Times</h2>
@@ -112,6 +128,22 @@
       </div>
 
       <button id="btn-end-game" class="btn btn-secondary">End Game</button>
+    </div>
+  </div>
+
+  <!-- BETWEEN ROUNDS SCREEN -->
+  <div id="screen-between-rounds" class="screen">
+    <div class="container">
+      <div class="round-complete-card">
+        <span class="round-complete-label">Round Complete</span>
+        <span id="round-complete-number" class="round-complete-number">1</span>
+      </div>
+
+      <p class="hint">Reorder players for the next round — everyone can see changes live.</p>
+
+      <div id="reorder-list" class="reorder-list"></div>
+
+      <button id="btn-begin-round" class="btn btn-primary btn-large">Begin Round 2</button>
     </div>
   </div>
 

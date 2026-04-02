@@ -17,6 +17,7 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
   --text-on-surface2: #a8b2c4;
   --error: #ff6b8a;
+  --transition-fast: 150ms ease;
 }
 
 html, body {
@@ -442,6 +443,198 @@ h2 {
   gap: 2px;
 }
 
+/* ── Advanced Options (setup) ── */
+.advanced-options {
+  border: 1.5px solid var(--surface-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.advanced-options summary {
+  cursor: pointer;
+  padding: 14px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.advanced-options summary::-webkit-details-marker { display: none; }
+.advanced-options summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.advanced-options[open] summary {
+  border-bottom: 1.5px solid var(--surface-2);
+  color: var(--text);
+}
+
+.advanced-options-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.toggle-info { display: flex; flex-direction: column; gap: 3px; }
+.toggle-label { font-weight: 600; font-size: 0.95rem; cursor: pointer; }
+.toggle-hint  { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+
+/* ── Pause button ── */
+.btn-pause {
+  background: var(--bg);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.btn-pause:hover { color: var(--text); }
+.btn-pause:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ── Paused badge (inside active player card) ── */
+.paused-badge {
+  display: none;
+  background: rgba(233, 69, 96, 0.12);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: pausedPulse 2s ease-in-out infinite;
+}
+
+@keyframes pausedPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ── Round indicator (game screen) ── */
+.round-indicator {
+  display: none;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ── Between-rounds screen ── */
+.round-complete-card {
+  background: var(--surface-2);
+  border-radius: 20px;
+  padding: 28px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow);
+}
+
+.round-complete-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-on-surface2);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.round-complete-number {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* ── Reorder list ── */
+.reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reorder-row {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reorder-position {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 24px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.reorder-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.reorder-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.reorder-btn {
+  background: var(--surface-2);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reorder-btn:hover:not(:disabled) { background: var(--accent); }
+.reorder-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+.reorder-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
 /* ── Sound Toggle ── */
 .btn-sound-toggle {
   background: var(--bg);
@@ -495,12 +688,9 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .active-player-time.timer-pulse {
-    animation: none;
-  }
-  .screen.active {
-    animation: none;
-  }
+  .active-player-time.timer-pulse { animation: none; }
+  .screen.active                  { animation: none; }
+  .paused-badge                   { animation: none; }
 }
 
 /* ── Responsive ── */
