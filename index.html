@@ -23,8 +23,8 @@
       <h1>Set Up Game</h1>
 
       <div class="field-group">
-        <label>Number of Players</label>
-        <div class="stepper">
+        <label id="player-count-label">Number of Players</label>
+        <div class="stepper" role="group" aria-labelledby="player-count-label">
           <button id="count-down" class="stepper-btn" aria-label="Decrease">&#8722;</button>
           <span id="player-count-display">2</span>
           <button id="count-up" class="stepper-btn" aria-label="Increase">&#43;</button>
@@ -33,6 +33,7 @@
 
       <div id="player-names" class="player-names"></div>
 
+      <p id="setup-error" class="error-msg"></p>
       <button id="btn-create-room" class="btn btn-primary btn-large">Create Room</button>
       <button id="btn-back-setup" class="btn btn-secondary">Back</button>
     </div>
@@ -89,7 +90,10 @@
       <div class="total-timer-bar">
         <span class="label">Total Game Time</span>
         <span id="total-time" class="total-time">00:00:00</span>
-        <span id="game-room-code" class="game-room-code"></span>
+        <div class="timer-bar-right">
+          <span id="game-room-code" class="game-room-code"></span>
+          <button id="btn-sound-toggle" class="btn-sound-toggle" aria-label="Mute sound">🔊</button>
+        </div>
       </div>
 
       <div class="active-player-card">

@@ -24,7 +24,54 @@ const local = {
   activeIndex: 0,
   gameStartMs: null,
   turnStartMs: null,
+  thresholdsPulsed: new Set(),
 };
+
+// ── Audio ──────────────────────────────────────────────────────────────────
+
+let audioCtx = null;
+let soundEnabled = localStorage.getItem('soundEnabled') !== 'false'; // default on
+
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+// Unlock audio context on first user interaction anywhere on the page
+document.addEventListener('pointerdown', () => getAudioContext(), { once: true });
+
+function playTones(freqs, { spacing = 0.13, duration = 0.3, volume = 0.28 } = {}) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    freqs.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * spacing;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(volume, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.start(t);
+      osc.stop(t + duration);
+    });
+  } catch (e) { /* audio blocked — silent fail */ }
+}
+
+function playTurnSound()    { playTones([523.25, 659.25]); }               // C5 → E5
+function playGameEndSound() { playTones([523.25, 659.25, 783.99], { spacing: 0.15, duration: 0.5 }); } // C5 → E5 → G5
+
+function updateSoundToggleUI() {
+  const btn = document.getElementById('btn-sound-toggle');
+  if (!btn) return;
+  btn.textContent = soundEnabled ? '🔊' : '🔇';
+  btn.setAttribute('aria-label', soundEnabled ? 'Mute sound' : 'Unmute sound');
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -66,6 +113,7 @@ function renderNameInputs() {
     input.className = 'player-name-input';
     input.placeholder = `Player ${i + 1} name`;
     input.maxLength = 20;
+    input.setAttribute('aria-label', `Player ${i + 1} name`);
     playerNamesDiv.appendChild(input);
   }
 }
@@ -87,30 +135,42 @@ document.getElementById('btn-join-screen').addEventListener('click', () => {
 document.getElementById('btn-back-join').addEventListener('click', () => showScreen('screen-home'));
 
 document.getElementById('btn-create-room').addEventListener('click', async () => {
-  const inputs = playerNamesDiv.querySelectorAll('input');
-  const players = Array.from(inputs).map((inp, i) => ({
-    name: inp.value.trim() || `Player ${i + 1}`,
-    totalMs: 0,
-    turns: 0,
-  }));
+  const btn = document.getElementById('btn-create-room');
+  const errorEl = document.getElementById('setup-error');
+  errorEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
 
-  const code = generateRoomCode();
-  local.roomCode = code;
-  local.isHost = true;
+  try {
+    const inputs = playerNamesDiv.querySelectorAll('input');
+    const players = Array.from(inputs).map((inp, i) => ({
+      name: inp.value.trim() || `Player ${i + 1}`,
+      totalMs: 0,
+      turns: 0,
+    }));
 
-  await db.ref(`rooms/${code}`).set({
-    status: 'lobby',
-    players,
-    activeIndex: 0,
-    gameStartMs: null,
-    turnStartMs: null,
-  });
+    const code = generateRoomCode();
+    local.roomCode = code;
+    local.isHost = true;
 
-  subscribeToRoom(code);
-  document.getElementById('lobby-room-code').textContent = code;
-  document.getElementById('btn-begin-game').style.display = 'block';
-  document.getElementById('waiting-msg').style.display = 'none';
-  showScreen('screen-lobby');
+    await db.ref(`rooms/${code}`).set({
+      status: 'lobby',
+      players,
+      activeIndex: 0,
+      gameStartMs: null,
+      turnStartMs: null,
+    });
+
+    subscribeToRoom(code);
+    document.getElementById('lobby-room-code').textContent = code;
+    document.getElementById('btn-begin-game').style.display = 'block';
+    document.getElementById('waiting-msg').style.display = 'none';
+    showScreen('screen-lobby');
+  } catch (err) {
+    errorEl.textContent = 'Could not create room. Check your connection and try again.';
+    btn.disabled = false;
+    btn.textContent = 'Create Room';
+  }
 });
 
 // ── Join Screen ────────────────────────────────────────────────────────────
@@ -125,6 +185,7 @@ joinInput.addEventListener('input', () => {
 });
 
 document.getElementById('btn-join').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-join');
   const code = joinInput.value.trim().toUpperCase();
   const errorEl = document.getElementById('join-error');
   errorEl.textContent = '';
@@ -134,26 +195,39 @@ document.getElementById('btn-join').addEventListener('click', async () => {
     return;
   }
 
-  const snapshot = await db.ref(`rooms/${code}`).once('value');
-  if (!snapshot.exists()) {
-    errorEl.textContent = 'Room not found. Check the code and try again.';
-    return;
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
+
+  try {
+    const snapshot = await db.ref(`rooms/${code}`).once('value');
+    if (!snapshot.exists()) {
+      errorEl.textContent = 'Room not found. Check the code and try again.';
+      btn.disabled = false;
+      btn.textContent = 'Join';
+      return;
+    }
+
+    const data = snapshot.val();
+    if (data.status === 'finished') {
+      errorEl.textContent = 'That game has already ended.';
+      btn.disabled = false;
+      btn.textContent = 'Join';
+      return;
+    }
+
+    local.roomCode = code;
+    local.isHost = false;
+
+    subscribeToRoom(code);
+    document.getElementById('lobby-room-code').textContent = code;
+    document.getElementById('btn-begin-game').style.display = 'none';
+    document.getElementById('waiting-msg').style.display = 'block';
+    showScreen('screen-lobby');
+  } catch (err) {
+    errorEl.textContent = 'Connection error. Check your network and try again.';
+    btn.disabled = false;
+    btn.textContent = 'Join';
   }
-
-  const data = snapshot.val();
-  if (data.status === 'finished') {
-    errorEl.textContent = 'That game has already ended.';
-    return;
-  }
-
-  local.roomCode = code;
-  local.isHost = false;
-
-  subscribeToRoom(code);
-  document.getElementById('lobby-room-code').textContent = code;
-  document.getElementById('btn-begin-game').style.display = 'none';
-  document.getElementById('waiting-msg').style.display = 'block';
-  showScreen('screen-lobby');
 });
 
 // ── Firebase Subscription ──────────────────────────────────────────────────
@@ -167,6 +241,10 @@ function subscribeToRoom(code) {
     local.players = data.players || [];
     local.activeIndex = data.activeIndex || 0;
     local.gameStartMs = data.gameStartMs;
+    // Reset threshold tracker whenever the turn changes
+    if (data.turnStartMs !== local.turnStartMs) {
+      local.thresholdsPulsed = new Set();
+    }
     local.turnStartMs = data.turnStartMs;
 
     if (data.status === 'lobby') {
@@ -198,11 +276,19 @@ function renderLobbyPlayers(players) {
 }
 
 document.getElementById('btn-begin-game').addEventListener('click', async () => {
-  await db.ref(`rooms/${local.roomCode}`).update({
-    status: 'playing',
-    gameStartMs: firebase.database.ServerValue.TIMESTAMP,
-    turnStartMs: firebase.database.ServerValue.TIMESTAMP,
-  });
+  const btn = document.getElementById('btn-begin-game');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  try {
+    await db.ref(`rooms/${local.roomCode}`).update({
+      status: 'playing',
+      gameStartMs: firebase.database.ServerValue.TIMESTAMP,
+      turnStartMs: firebase.database.ServerValue.TIMESTAMP,
+    });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Start Game';
+  }
 });
 
 // ── Tick ───────────────────────────────────────────────────────────────────
@@ -215,14 +301,36 @@ function startTick() {
 function stopTick() {
   clearInterval(local.tickInterval);
   local.tickInterval = null;
+  const turnEl = document.getElementById('active-player-time');
+  if (turnEl) {
+    turnEl.classList.remove('timer-warning', 'timer-danger', 'timer-critical', 'timer-pulse');
+  }
 }
 
 function tick() {
   if (!local.gameStartMs) return;
   const now = Date.now();
+  const turnMs = now - local.turnStartMs;
 
   document.getElementById('total-time').textContent = formatTime(now - local.gameStartMs);
-  document.getElementById('active-player-time').textContent = formatTime(now - local.turnStartMs);
+
+  const turnEl = document.getElementById('active-player-time');
+  turnEl.textContent = formatTime(turnMs);
+
+  // Threshold coloring: 1 min = warning, 2 min = danger, 3 min = critical
+  const minutes = turnMs / 60000;
+  turnEl.classList.toggle('timer-warning',  minutes >= 1 && minutes < 2);
+  turnEl.classList.toggle('timer-danger',   minutes >= 2 && minutes < 3);
+  turnEl.classList.toggle('timer-critical', minutes >= 3);
+
+  // Pulse animation fires once at each threshold crossing
+  [1, 2, 3].forEach(t => {
+    if (minutes >= t && !local.thresholdsPulsed.has(t)) {
+      local.thresholdsPulsed.add(t);
+      turnEl.classList.add('timer-pulse');
+      setTimeout(() => turnEl.classList.remove('timer-pulse'), 600);
+    }
+  });
 }
 
 // ── Game Screen ────────────────────────────────────────────────────────────
@@ -248,36 +356,56 @@ function renderScoreboard() {
 
 document.getElementById('btn-end-turn').addEventListener('click', async () => {
   if (!local.turnStartMs) return;
+  const btn = document.getElementById('btn-end-turn');
+  btn.disabled = true;
+  playTurnSound();
 
-  const turnMs = Date.now() - local.turnStartMs;
-  const players = local.players.map((p, i) => {
-    if (i !== local.activeIndex) return p;
-    return { ...p, totalMs: p.totalMs + turnMs, turns: p.turns + 1 };
-  });
-  const nextIndex = (local.activeIndex + 1) % players.length;
+  try {
+    const turnMs = Date.now() - local.turnStartMs;
+    const players = local.players.map((p, i) => {
+      if (i !== local.activeIndex) return p;
+      return { ...p, totalMs: p.totalMs + turnMs, turns: p.turns + 1 };
+    });
+    const nextIndex = (local.activeIndex + 1) % players.length;
 
-  await db.ref(`rooms/${local.roomCode}`).update({
-    players,
-    activeIndex: nextIndex,
-    turnStartMs: firebase.database.ServerValue.TIMESTAMP,
-  });
+    await db.ref(`rooms/${local.roomCode}`).update({
+      players,
+      activeIndex: nextIndex,
+      turnStartMs: firebase.database.ServerValue.TIMESTAMP,
+    });
+  } catch (err) {
+    // silently re-enable — game state is unchanged on failure
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 document.getElementById('btn-end-game').addEventListener('click', async () => {
   if (!local.turnStartMs) return;
+  if (!window.confirm('End the game for everyone? This cannot be undone.')) return;
 
-  const turnMs = Date.now() - local.turnStartMs;
-  const players = local.players.map((p, i) => {
-    if (i !== local.activeIndex) return p;
-    return { ...p, totalMs: p.totalMs + turnMs, turns: p.turns + 1 };
-  });
-  const gameEndMs = Date.now();
+  playGameEndSound();
+  const btn = document.getElementById('btn-end-game');
+  btn.disabled = true;
+  btn.textContent = 'Ending…';
 
-  await db.ref(`rooms/${local.roomCode}`).update({
-    status: 'finished',
-    players,
-    gameEndMs,
-  });
+  try {
+    const turnMs = Date.now() - local.turnStartMs;
+    const players = local.players.map((p, i) => {
+      if (i !== local.activeIndex) return p;
+      return { ...p, totalMs: p.totalMs + turnMs, turns: p.turns + 1 };
+    });
+    const gameEndMs = Date.now();
+
+    await db.ref(`rooms/${local.roomCode}`).update({
+      status: 'finished',
+      players,
+      gameEndMs,
+    });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'End Game';
+  }
 });
 
 // ── Summary Screen ─────────────────────────────────────────────────────────
@@ -321,6 +449,15 @@ document.getElementById('btn-new-game').addEventListener('click', () => {
   showScreen('screen-home');
 });
 
+// ── Sound Toggle ───────────────────────────────────────────────────────────
+
+document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('soundEnabled', soundEnabled);
+  updateSoundToggleUI();
+});
+
 // ── Init ───────────────────────────────────────────────────────────────────
 
 renderNameInputs();
+updateSoundToggleUI();
