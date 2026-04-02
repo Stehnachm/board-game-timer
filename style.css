@@ -15,6 +15,8 @@
   --text-muted: #8892a4;
   --radius: 12px;
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --text-on-surface2: #a8b2c4;
+  --error: #ff6b8a;
 }
 
 html, body {
@@ -39,12 +41,18 @@ body {
 
 .screen.active {
   display: block;
+  animation: screenIn 150ms ease;
+}
+
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .container {
   max-width: 480px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 24px 16px calc(48px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -73,7 +81,7 @@ h2 {
 }
 
 .error-msg {
-  color: var(--accent);
+  color: var(--error);
   font-size: 0.9rem;
   min-height: 1.2em;
   text-align: center;
@@ -121,6 +129,11 @@ h2 {
 
 .stepper-btn:hover, .stepper-btn:active {
   background: var(--accent);
+}
+
+.stepper-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 #player-count-display {
@@ -181,6 +194,18 @@ h2 {
   transform: scale(0.97);
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+
 .btn-primary {
   background: var(--accent);
   color: #fff;
@@ -227,7 +252,7 @@ h2 {
 .room-code-card .label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-on-surface2);
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
@@ -256,6 +281,10 @@ h2 {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .total-time {
@@ -266,7 +295,7 @@ h2 {
 }
 
 .game-room-code {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 2px;
@@ -290,7 +319,7 @@ h2 {
 .turn-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-on-surface2);
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
@@ -411,6 +440,67 @@ h2 {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+}
+
+/* ── Sound Toggle ── */
+.btn-sound-toggle {
+  background: var(--bg);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 6px 8px;
+  /* Expand tap target without growing visually */
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.btn-sound-toggle:hover {
+  color: var(--text);
+}
+
+.btn-sound-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.timer-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── Turn Timer Thresholds ── */
+.active-player-time.timer-warning  { color: #f5c842; }
+.active-player-time.timer-danger   { color: #f59b42; }
+.active-player-time.timer-critical { color: #ff4f4f; }
+
+@keyframes timerPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.active-player-time.timer-pulse {
+  animation: timerPulse 0.5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active-player-time.timer-pulse {
+    animation: none;
+  }
+  .screen.active {
+    animation: none;
+  }
 }
 
 /* ── Responsive ── */
