@@ -63,8 +63,10 @@ function playTones(freqs, { spacing = 0.13, duration = 0.3, volume = 0.28 } = {}
   } catch (e) { /* audio blocked — silent fail */ }
 }
 
-function playTurnSound()    { playTones([523.25, 659.25]); }               // C5 → E5
-function playGameEndSound() { playTones([523.25, 659.25, 783.99], { spacing: 0.15, duration: 0.5 }); } // C5 → E5 → G5
+function playTurnSound()      { playTones([523.25, 659.25]); }                                                // C5 → E5
+function playGameEndSound()  { playTones([523.25, 659.25, 783.99], { spacing: 0.15, duration: 0.5 }); }     // C5 → E5 → G5
+function play30sSound()      { playTones([1046.5, 1318.5], { spacing: 0.08, duration: 0.18, volume: 0.18 }); } // C6 → E6 — light encouraging ding
+function play60sSound()      { playTones([293.66, 246.94, 196], { spacing: 0.14, duration: 0.4, volume: 0.38 }); } // D4 → B3 → G3 — descending urgent pulse
 
 function updateSoundToggleUI() {
   const btn = document.getElementById('btn-sound-toggle');
@@ -303,7 +305,7 @@ function stopTick() {
   local.tickInterval = null;
   const turnEl = document.getElementById('active-player-time');
   if (turnEl) {
-    turnEl.classList.remove('timer-warning', 'timer-danger', 'timer-critical', 'timer-pulse');
+    turnEl.classList.remove('timer-safe', 'timer-warning', 'timer-critical', 'timer-pulse');
   }
 }
 
@@ -317,16 +319,21 @@ function tick() {
   const turnEl = document.getElementById('active-player-time');
   turnEl.textContent = formatTime(turnMs);
 
-  // Threshold coloring: 1 min = warning, 2 min = danger, 3 min = critical
-  const minutes = turnMs / 60000;
-  turnEl.classList.toggle('timer-warning',  minutes >= 1 && minutes < 2);
-  turnEl.classList.toggle('timer-danger',   minutes >= 2 && minutes < 3);
-  turnEl.classList.toggle('timer-critical', minutes >= 3);
+  // Threshold coloring: 0–30s green, 31–60s yellow, 60s+ red
+  const seconds = turnMs / 1000;
+  turnEl.classList.toggle('timer-safe',     seconds < 30);
+  turnEl.classList.toggle('timer-warning',  seconds >= 30 && seconds < 60);
+  turnEl.classList.toggle('timer-critical', seconds >= 60);
 
-  // Pulse animation fires once at each threshold crossing
-  [1, 2, 3].forEach(t => {
-    if (minutes >= t && !local.thresholdsPulsed.has(t)) {
-      local.thresholdsPulsed.add(t);
+  // Pulse + sound fires once at each threshold crossing
+  const thresholds = [
+    { at: 30, sound: play30sSound },
+    { at: 60, sound: play60sSound },
+  ];
+  thresholds.forEach(({ at, sound }) => {
+    if (seconds >= at && !local.thresholdsPulsed.has(at)) {
+      local.thresholdsPulsed.add(at);
+      sound();
       turnEl.classList.add('timer-pulse');
       setTimeout(() => turnEl.classList.remove('timer-pulse'), 600);
     }

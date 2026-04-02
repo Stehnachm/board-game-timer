@@ -480,9 +480,9 @@ h2 {
 }
 
 /* ── Turn Timer Thresholds ── */
-.active-player-time.timer-warning  { color: #f5c842; }
-.active-player-time.timer-danger   { color: #f59b42; }
-.active-player-time.timer-critical { color: #ff4f4f; }
+.active-player-time.timer-safe     { color: #4ade80; }   /* 0–30s  green  */
+.active-player-time.timer-warning  { color: #f5c842; }   /* 31–60s yellow */
+.active-player-time.timer-critical { color: #ff4f4f; }   /* 60s+   red    */
 
 @keyframes timerPulse {
   0%   { transform: scale(1); }
