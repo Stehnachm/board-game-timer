@@ -101,8 +101,10 @@
     <div class="container">
 
       <div class="total-timer-bar">
-        <span class="label">Total Game Time</span>
-        <span id="total-time" class="total-time">00:00:00</span>
+        <div class="total-timer-info">
+          <span class="label">Total Game Time</span>
+          <span id="total-time" class="total-time">00:00:00</span>
+        </div>
         <div class="timer-bar-right">
           <span id="game-room-code" class="game-room-code"></span>
           <button id="btn-pause" class="btn-pause" aria-label="Pause game">⏸</button>
@@ -112,7 +114,7 @@
 
       <div id="round-indicator" class="round-indicator"></div>
 
-      <div class="active-player-card">
+      <div id="active-player-card" class="active-player-card">
         <div class="turn-label">Current Turn</div>
         <div id="active-player-name" class="active-player-name">Player 1</div>
         <div id="active-player-time" class="active-player-time timer-safe">00:00:00</div>

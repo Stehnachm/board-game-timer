@@ -32,6 +32,8 @@ const local = {
   // Round mode
   roundMode: false,
   currentRound: 1,
+  // Navigation
+  prevStatus: null,
 };
 
 // ── Audio ──────────────────────────────────────────────────────────────────
@@ -72,8 +74,76 @@ function playTones(freqs, { spacing = 0.13, duration = 0.3, volume = 0.28 } = {}
 
 function playTurnSound()      { playTones([523.25, 659.25]); }                                                // C5 → E5
 function playGameEndSound()  { playTones([523.25, 659.25, 783.99], { spacing: 0.15, duration: 0.5 }); }     // C5 → E5 → G5
-function play30sSound()      { playTones([1046.5, 1318.5], { spacing: 0.08, duration: 0.18, volume: 0.18 }); } // C6 → E6 — light encouraging ding
-function play60sSound()      { playTones([293.66, 246.94, 196], { spacing: 0.14, duration: 0.4, volume: 0.38 }); } // D4 → B3 → G3 — descending urgent pulse
+function play30sSound() {
+  // Rapid ticking clock — 5 quick clicks to signal 30s urgency
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    for (let i = 0; i < 5; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 900;
+      const t = ctx.currentTime + i * 0.11;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.12, t + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    }
+  } catch (e) { /* silent fail */ }
+}
+function playBongSound() {
+  // Deep clock-tower bong — loud bell with long decay, repeats every 60s
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    const partials = [
+      { freq: 130.8, vol: 0.55, decay: 2.8 }, // C3 fundamental
+      { freq: 261.6, vol: 0.25, decay: 1.8 }, // C4 octave
+      { freq: 392.0, vol: 0.12, decay: 1.0 }, // G4 fifth
+    ];
+    partials.forEach(({ freq, vol, decay }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(vol, t + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + decay);
+      osc.start(t);
+      osc.stop(t + decay);
+    });
+  } catch (e) { /* silent fail */ }
+}
+
+function playGameStartSound() {
+  // Snappy ascending arpeggio — C4 E4 G4 C5
+  playTones([261.63, 329.63, 392, 523.25], { spacing: 0.09, duration: 0.32, volume: 0.3 });
+}
+
+const GAME_START_PHRASES = [
+  'Game On!',
+  'May the best player win!',
+  'Good Luck Everyone!',
+  'Pause for Snacks!',
+  'Time to play!',
+];
+
+function showGameStartSplash() {
+  playGameStartSound();
+  const phrase = GAME_START_PHRASES[Math.floor(Math.random() * GAME_START_PHRASES.length)];
+  const el = document.createElement('div');
+  el.className = 'game-start-splash';
+  el.textContent = phrase;
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
 
 function updateSoundToggleUI() {
   const btn = document.getElementById('btn-sound-toggle');
@@ -103,9 +173,11 @@ function generateRoomCode() {
   return code;
 }
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+function showScreen(id, back = false) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'back'));
+  const next = document.getElementById(id);
+  if (back) next.classList.add('back');
+  next.classList.add('active');
 }
 
 // ── Setup Screen ───────────────────────────────────────────────────────────
@@ -115,6 +187,7 @@ const countDisplay = document.getElementById('player-count-display');
 const playerNamesDiv = document.getElementById('player-names');
 
 function renderNameInputs() {
+  const existingValues = Array.from(playerNamesDiv.querySelectorAll('input')).map(i => i.value);
   playerNamesDiv.innerHTML = '';
   for (let i = 0; i < playerCount; i++) {
     const input = document.createElement('input');
@@ -123,6 +196,7 @@ function renderNameInputs() {
     input.placeholder = `Player ${i + 1} name`;
     input.maxLength = 20;
     input.setAttribute('aria-label', `Player ${i + 1} name`);
+    if (existingValues[i]) input.value = existingValues[i];
     playerNamesDiv.appendChild(input);
   }
 }
@@ -134,14 +208,19 @@ document.getElementById('count-up').addEventListener('click', () => {
   if (playerCount < 6) { playerCount++; countDisplay.textContent = playerCount; renderNameInputs(); }
 });
 
-document.getElementById('btn-host').addEventListener('click', () => showScreen('screen-setup'));
-document.getElementById('btn-back-setup').addEventListener('click', () => showScreen('screen-home'));
+document.getElementById('btn-host').addEventListener('click', () => {
+  const createBtn = document.getElementById('btn-create-room');
+  createBtn.disabled = false;
+  createBtn.textContent = 'Create Room';
+  showScreen('screen-setup');
+});
+document.getElementById('btn-back-setup').addEventListener('click', () => showScreen('screen-home', true));
 document.getElementById('btn-join-screen').addEventListener('click', () => {
   document.getElementById('join-code-input').value = '';
   document.getElementById('join-error').textContent = '';
   showScreen('screen-join');
 });
-document.getElementById('btn-back-join').addEventListener('click', () => showScreen('screen-home'));
+document.getElementById('btn-back-join').addEventListener('click', () => showScreen('screen-home', true));
 
 document.getElementById('btn-create-room').addEventListener('click', async () => {
   const btn = document.getElementById('btn-create-room');
@@ -179,7 +258,10 @@ document.getElementById('btn-create-room').addEventListener('click', async () =>
 
     subscribeToRoom(code);
     document.getElementById('lobby-room-code').textContent = code;
-    document.getElementById('btn-begin-game').style.display = 'block';
+    const beginBtn = document.getElementById('btn-begin-game');
+    beginBtn.style.display = 'block';
+    beginBtn.disabled = false;
+    beginBtn.textContent = 'Start Game';
     document.getElementById('waiting-msg').style.display = 'none';
     showScreen('screen-lobby');
   } catch (err) {
@@ -276,6 +358,7 @@ function subscribeToRoom(code) {
       document.getElementById('game-room-code').textContent = local.roomCode;
       showScreen('screen-game');
       startTick();
+      if (local.prevStatus === 'lobby') showGameStartSplash();
     } else if (data.status === 'between-rounds') {
       stopTick();
       renderBetweenRounds(data);
@@ -285,6 +368,7 @@ function subscribeToRoom(code) {
       renderSummary(data);
       showScreen('screen-summary');
     }
+    local.prevStatus = data.status;
   });
 }
 
@@ -331,6 +415,8 @@ function stopTick() {
   if (turnEl) {
     turnEl.classList.remove('timer-safe', 'timer-warning', 'timer-critical', 'timer-pulse');
   }
+  const cardEl = document.getElementById('active-player-card');
+  if (cardEl) cardEl.classList.remove('card-critical');
 }
 
 function tick() {
@@ -358,19 +444,32 @@ function tick() {
   turnEl.classList.toggle('timer-warning',  seconds >= 30 && seconds < 60);
   turnEl.classList.toggle('timer-critical', seconds >= 60);
 
-  // Pulse + sound fires once at each threshold crossing
-  const thresholds = [
-    { at: 30, sound: play30sSound },
-    { at: 60, sound: play60sSound },
-  ];
-  thresholds.forEach(({ at, sound }) => {
-    if (seconds >= at && !local.thresholdsPulsed.has(at)) {
-      local.thresholdsPulsed.add(at);
-      sound();
-      turnEl.classList.add('timer-pulse');
-      setTimeout(() => turnEl.classList.remove('timer-pulse'), 600);
-    }
-  });
+  // 30s ticking clock — fires once
+  if (seconds >= 30 && !local.thresholdsPulsed.has(30)) {
+    local.thresholdsPulsed.add(30);
+    play30sSound();
+    turnEl.classList.add('timer-pulse');
+    setTimeout(() => turnEl.classList.remove('timer-pulse'), 600);
+  }
+
+  // Bong at 60, 120, 180, … seconds
+  const bongCount = Math.floor(seconds / 60);
+  if (bongCount > 0 && !local.thresholdsPulsed.has(`bong${bongCount}`)) {
+    local.thresholdsPulsed.add(`bong${bongCount}`);
+    playBongSound();
+    turnEl.classList.add('timer-pulse');
+    setTimeout(() => turnEl.classList.remove('timer-pulse'), 600);
+  }
+
+  // Critical glow on the active player card at 60s+
+  const cardEl = document.getElementById('active-player-card');
+  if (cardEl) cardEl.classList.toggle('card-critical', seconds >= 60);
+
+  // Live running time on the active scoreboard row
+  const activeRowTimeEl = document.getElementById('active-row-time');
+  if (activeRowTimeEl) {
+    activeRowTimeEl.textContent = formatTime(local.players[local.activeIndex].totalMs + turnMs);
+  }
 }
 
 // ── Game Screen ────────────────────────────────────────────────────────────
@@ -378,7 +477,13 @@ function tick() {
 function renderScoreboard() {
   const active = local.players[local.activeIndex];
   if (active) {
-    document.getElementById('active-player-name').textContent = active.name;
+    const nameEl = document.getElementById('active-player-name');
+    if (nameEl.textContent !== active.name) {
+      nameEl.textContent = active.name;
+      nameEl.classList.remove('name-enter');
+      void nameEl.offsetWidth; // force reflow to restart animation
+      nameEl.classList.add('name-enter');
+    }
   }
 
   // Round indicator
@@ -409,7 +514,7 @@ function renderScoreboard() {
     row.className = 'scoreboard-row' + (i === local.activeIndex ? ' active-row' : '');
     row.innerHTML = `
       <span class="player-name">${p.name}</span>
-      <span class="player-time">${formatTime(p.totalMs)}</span>
+      <span class="player-time"${i === local.activeIndex ? ' id="active-row-time"' : ''}>${formatTime(p.totalMs)}</span>
     `;
     list.appendChild(row);
   });
@@ -448,7 +553,7 @@ document.getElementById('btn-end-game').addEventListener('click', async () => {
   playGameEndSound();
   const btn = document.getElementById('btn-end-game');
   btn.disabled = true;
-  btn.textContent = 'Ending…';
+  btn.textContent = 'End Game';
 
   try {
     const turnMs = Date.now() - local.turnStartMs;
@@ -581,6 +686,24 @@ function renderBetweenRounds(data) {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.index);
       const dir = parseInt(btn.dataset.dir);
+
+      // Animate rows sliding into each other's positions
+      const allRows = Array.from(list.querySelectorAll('.reorder-row'));
+      const rowA = allRows[idx];
+      const rowB = allRows[idx + dir];
+      const dist = rowA.offsetHeight + 8; // row height + gap
+
+      // Disable all buttons for the duration of the animation
+      list.querySelectorAll('.reorder-btn').forEach(b => { b.disabled = true; });
+
+      rowA.style.zIndex = '2';
+      rowA.style.transition = 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)';
+      rowB.style.transition = 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)';
+      rowA.style.transform = `translateY(${dir * dist}px)`;
+      rowB.style.transform = `translateY(${-dir * dist}px)`;
+
+      await new Promise(r => setTimeout(r, 220));
+
       const newPlayers = [...local.players];
       [newPlayers[idx], newPlayers[idx + dir]] = [newPlayers[idx + dir], newPlayers[idx]];
       await db.ref(`rooms/${local.roomCode}`).update({ players: newPlayers });
@@ -623,6 +746,7 @@ function renderSummary(data) {
   sorted.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'summary-row';
+    row.style.animationDelay = `${i * 80}ms`;
     row.innerHTML = `
       <span class="rank">${i + 1}.</span>
       <span class="player-name">${p.name}</span>
@@ -662,6 +786,23 @@ document.getElementById('btn-sound-toggle').addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem('soundEnabled', soundEnabled);
   updateSoundToggleUI();
+});
+
+// ── Ripple Effect ─────────────────────────────────────────────────────────
+
+document.querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    if (this.disabled) return;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+    ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+    this.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  });
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────
