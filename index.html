@@ -25,9 +25,9 @@
       <div class="field-group">
         <label id="player-count-label">Number of Players</label>
         <div class="stepper" role="group" aria-labelledby="player-count-label">
-          <button id="count-down" class="stepper-btn" aria-label="Decrease">&#8722;</button>
-          <span id="player-count-display">2</span>
-          <button id="count-up" class="stepper-btn" aria-label="Increase">&#43;</button>
+          <button id="count-down" class="stepper-btn" aria-label="Decrease player count">&#8722;</button>
+          <span id="player-count-display" aria-live="polite" aria-atomic="true">2</span>
+          <button id="count-up" class="stepper-btn" aria-label="Increase player count">&#43;</button>
         </div>
       </div>
 
@@ -48,7 +48,7 @@
 
       <p id="setup-error" class="error-msg"></p>
       <button id="btn-create-room" class="btn btn-primary btn-large">Create Room</button>
-      <button id="btn-back-setup" class="btn btn-secondary">Back</button>
+      <button id="btn-back-setup" class="btn btn-secondary btn-large">Back</button>
     </div>
   </div>
 
@@ -71,7 +71,7 @@
       </div>
       <p id="join-error" class="error-msg"></p>
       <button id="btn-join" class="btn btn-primary btn-large">Join</button>
-      <button id="btn-back-join" class="btn btn-secondary">Back</button>
+      <button id="btn-back-join" class="btn btn-secondary btn-large">Back</button>
     </div>
   </div>
 
@@ -80,19 +80,20 @@
     <div class="container">
       <h1>Lobby</h1>
 
-      <div class="room-code-card">
+      <div class="room-code-card" id="lobby-code-card" role="button" tabindex="0" aria-label="Room code — tap to copy">
         <span class="label">Room Code</span>
         <span id="lobby-room-code" class="room-code-display">-----</span>
+        <span class="copy-hint">tap to copy</span>
       </div>
       <p class="hint">Other players enter this code on the Join screen</p>
 
       <div class="scoreboard">
         <h2>Players</h2>
-        <div id="lobby-player-list" class="scoreboard-list"></div>
+        <div id="lobby-player-list" class="scoreboard-list" role="list"></div>
       </div>
 
       <button id="btn-begin-game" class="btn btn-primary btn-large" style="display:none">Start Game</button>
-      <p id="waiting-msg" class="hint" style="text-align:center">Waiting for host to start&hellip;</p>
+      <p id="waiting-msg" class="hint waiting-msg" style="text-align:center">Waiting for host to start</p>
     </div>
   </div>
 
@@ -112,7 +113,7 @@
         </div>
       </div>
 
-      <div id="round-indicator" class="round-indicator"></div>
+      <div id="round-indicator" class="round-indicator" aria-live="polite"></div>
 
       <div id="active-player-card" class="active-player-card">
         <div class="turn-label">Current Turn</div>
@@ -126,10 +127,10 @@
 
       <div class="scoreboard">
         <h2>Turn Times</h2>
-        <div id="scoreboard-list" class="scoreboard-list"></div>
+        <div id="scoreboard-list" class="scoreboard-list" role="list"></div>
       </div>
 
-      <button id="btn-end-game" class="btn btn-secondary">End Game</button>
+      <button id="btn-end-game" class="btn btn-destructive">End Game</button>
     </div>
   </div>
 
@@ -143,7 +144,7 @@
 
       <p class="hint">Reorder players for the next round — everyone can see changes live.</p>
 
-      <div id="reorder-list" class="reorder-list"></div>
+      <div id="reorder-list" class="reorder-list" role="list"></div>
 
       <button id="btn-begin-round" class="btn btn-primary btn-large">Begin Round 2</button>
     </div>
@@ -160,9 +161,21 @@
       </div>
 
       <h2>Player Summary</h2>
-      <div id="summary-list" class="summary-list"></div>
+      <div id="summary-list" class="summary-list" role="list"></div>
 
       <button id="btn-new-game" class="btn btn-primary btn-large">New Game</button>
+    </div>
+  </div>
+
+  <!-- END GAME CONFIRM MODAL -->
+  <div id="modal-end-game" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-end-title" style="display:none">
+    <div class="modal-card">
+      <h2 id="modal-end-title">End the game?</h2>
+      <p class="modal-body">This ends the game for everyone and cannot be undone.</p>
+      <div class="modal-actions">
+        <button id="modal-end-cancel" class="btn btn-secondary btn-large">Cancel</button>
+        <button id="modal-end-confirm" class="btn btn-danger btn-large">End Game</button>
+      </div>
     </div>
   </div>
 

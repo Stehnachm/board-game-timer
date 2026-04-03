@@ -178,6 +178,12 @@ function showScreen(id, back = false) {
   const next = document.getElementById(id);
   if (back) next.classList.add('back');
   next.classList.add('active');
+  // Move focus to the screen heading so keyboard/screen-reader users land in context
+  const heading = next.querySelector('h1');
+  if (heading) {
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
+  }
 }
 
 // ── Setup Screen ───────────────────────────────────────────────────────────
@@ -377,9 +383,18 @@ function subscribeToRoom(code) {
 function renderLobbyPlayers(players) {
   const list = document.getElementById('lobby-player-list');
   list.innerHTML = '';
-  (players || []).forEach(p => {
+  if (!players || players.length === 0) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'scoreboard-row';
+    placeholder.setAttribute('role', 'listitem');
+    placeholder.innerHTML = `<span class="player-name" style="color:var(--text-muted)">Connecting…</span>`;
+    list.appendChild(placeholder);
+    return;
+  }
+  players.forEach(p => {
     const row = document.createElement('div');
     row.className = 'scoreboard-row';
+    row.setAttribute('role', 'listitem');
     row.innerHTML = `<span class="player-name">${p.name}</span>`;
     list.appendChild(row);
   });
@@ -512,6 +527,7 @@ function renderScoreboard() {
   local.players.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'scoreboard-row' + (i === local.activeIndex ? ' active-row' : '');
+    row.setAttribute('role', 'listitem');
     row.innerHTML = `
       <span class="player-name">${p.name}</span>
       <span class="player-time"${i === local.activeIndex ? ' id="active-row-time"' : ''}>${formatTime(p.totalMs)}</span>
@@ -546,14 +562,23 @@ document.getElementById('btn-end-turn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('btn-end-game').addEventListener('click', async () => {
+document.getElementById('btn-end-game').addEventListener('click', () => {
   if (!local.turnStartMs) return;
-  if (!window.confirm('End the game for everyone? This cannot be undone.')) return;
+  const modal = document.getElementById('modal-end-game');
+  modal.style.display = 'flex';
+  document.getElementById('modal-end-cancel').focus();
+});
 
+document.getElementById('modal-end-cancel').addEventListener('click', () => {
+  document.getElementById('modal-end-game').style.display = 'none';
+  document.getElementById('btn-end-game').focus();
+});
+
+document.getElementById('modal-end-confirm').addEventListener('click', async () => {
+  document.getElementById('modal-end-game').style.display = 'none';
   playGameEndSound();
-  const btn = document.getElementById('btn-end-game');
-  btn.disabled = true;
-  btn.textContent = 'End Game';
+  const endBtn = document.getElementById('btn-end-game');
+  endBtn.disabled = true;
 
   try {
     const turnMs = Date.now() - local.turnStartMs;
@@ -569,8 +594,26 @@ document.getElementById('btn-end-game').addEventListener('click', async () => {
       gameEndMs,
     });
   } catch (err) {
-    btn.disabled = false;
-    btn.textContent = 'End Game';
+    endBtn.disabled = false;
+  }
+});
+
+// Close modal on Escape; trap Tab focus inside
+document.getElementById('modal-end-game').addEventListener('keydown', e => {
+  const modal = document.getElementById('modal-end-game');
+  if (e.key === 'Escape') {
+    modal.style.display = 'none';
+    document.getElementById('btn-end-game').focus();
+  }
+  if (e.key === 'Tab') {
+    const focusable = Array.from(modal.querySelectorAll('button'));
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
   }
 });
 
@@ -667,6 +710,7 @@ function renderBetweenRounds(data) {
   (data.players || []).forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'reorder-row';
+    row.setAttribute('role', 'listitem');
     const isFirst = i === 0;
     const isLast  = i === (data.players.length - 1);
     row.innerHTML = `
@@ -746,6 +790,7 @@ function renderSummary(data) {
   sorted.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'summary-row';
+    row.setAttribute('role', 'listitem');
     row.style.animationDelay = `${i * 80}ms`;
     row.innerHTML = `
       <span class="rank">${i + 1}.</span>
@@ -773,11 +818,33 @@ document.getElementById('btn-new-game').addEventListener('click', () => {
   local.turnElapsedMs = null;
   local.roundMode = false;
   local.currentRound = 1;
+  local.prevStatus = null;
 
   playerCount = 2;
   countDisplay.textContent = 2;
   renderNameInputs();
   showScreen('screen-home');
+});
+
+// ── Room Code Copy ────────────────────────────────────────────────────────
+
+function copyRoomCode() {
+  const code = local.roomCode;
+  if (!code) return;
+  const codeEl = document.getElementById('lobby-room-code');
+  navigator.clipboard.writeText(code).then(() => {
+    codeEl.textContent = 'Copied!';
+    codeEl.classList.add('code-copied');
+    setTimeout(() => {
+      codeEl.textContent = code;
+      codeEl.classList.remove('code-copied');
+    }, 1500);
+  }).catch(() => { /* clipboard blocked — silent fail */ });
+}
+
+document.getElementById('lobby-code-card').addEventListener('click', copyRoomCode);
+document.getElementById('lobby-code-card').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyRoomCode(); }
 });
 
 // ── Sound Toggle ───────────────────────────────────────────────────────────
